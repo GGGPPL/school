@@ -4,10 +4,11 @@
 #include<time.h>
 #include<cstdlib>
 
-#define debug(d) cout << #d << ": " << d << endl
 #define fir(d) for(int i=0; i<d; i++)
 #define fjr(d) for(int j=0; j<d; j++)
 #define fkr(d) for(int k=0; k<d; k++)
+#define debug(d) cerr << "Line " << __LINE__ << " " << #d << ": " << d << endl
+#define debugtext(d) cerr << "Line " << __LINE__ << d << endl
 
 using namespace std;
 
@@ -49,6 +50,8 @@ int main()
     fjr(9)
     coloretto[j+54].color = "red";
 
+
+
     //3 joker
     coloretto[63].color = "joker";
     coloretto[64].color = "joker";
@@ -57,7 +60,8 @@ int main()
     //10 +2 cards
     fir(10)
     coloretto[66+i].color = "+2";
-    
+    //fir(76)
+    //debug(coloretto[i].color);
 
     //5 area cards
     card area[5];
@@ -77,35 +81,40 @@ int main()
     card last_round;
     last_round.type = "last_round";
     
+    
     //number of players
     cout << "number of players: ";
     cin >> player_num;
 
-    
+    //make supply deck
+    vector<card> SupplyDeck;
+    fir(sizeof(coloretto)/sizeof(coloretto[0]))
+    {
+        SupplyDeck.push_back(coloretto[i]);
+    }
+    debug(sizeof(SupplyDeck[0]));
+    fir(sizeof(SupplyDeck)/sizeof(SupplyDeck[0]))
+    {
+        debug(SupplyDeck[i].type);
+    }
 
     //3 players
     if(player_num == 3)
     {
         
         //remove one color of coloretto card
-        string RemovingColor = coloretto[rand()%62].color;
-        fir(63)
-        {
-            if(coloretto[i].color == RemovingColor)
-            {
-                coloretto[i].type = "removed";
-                coloretto[i].color = "removed";
-            }
-        }
+        int erase_index = rand() % 7;
+        SupplyDeck.erase(SupplyDeck.begin() + erase_index*9, SupplyDeck.begin() + erase_index*9 + 9);
 
+    }
+
+    fir(sizeof(SupplyDeck)/sizeof(SupplyDeck[0]))
+    {
+        debug(SupplyDeck[i].color);
     }
 
     //shuffle cards
-    vector<card> SupplyDeck;
-    fir(sizeof(coloretto)/sizeof(coloretto[0]))
-    {
-        SupplyDeck.push_back(coloretto[i]);
-    }
+    
 
     //get each player one summary card
     const int onlyforvisualstudio = player_num;
@@ -113,7 +122,7 @@ int main()
     {
         vector<card> PlayerDeck;
         vector<card> SummaryCardDeck;
-    } ;
+    } Player[onlyforvisualstudio];
 
     //get each player one coloretteo card
     //not joker and each coloretto cannot be the SAME COLOR
