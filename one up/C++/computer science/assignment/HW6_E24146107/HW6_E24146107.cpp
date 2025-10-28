@@ -1,0 +1,132 @@
+#include<iostream>
+#include<vector>
+#include<string>
+#include<time.h>
+#include<cstdlib>
+
+#define debug(d) cout << #d << ": " << d << endl
+#define fir(d) for(int i=0; i<d; i++)
+#define fjr(d) for(int j=0; j<d; j++)
+#define fkr(d) for(int k=0; k<d; k++)
+
+using namespace std;
+
+int main()
+{
+    srand(time(NULL));
+
+    //number of players
+    int player_num;
+
+    //make cards
+    struct card
+    {
+        string type;
+        string color;
+    };
+
+    //76 coloretto cards
+    card coloretto[76]; 
+    fir(76)
+    {
+        coloretto[i].type = "coloretto";
+    }
+
+    //9 cards each in 7 colors
+    //orange, yellow, green, brown, blue, purple, red
+    fjr(9)
+    coloretto[j].color = "orange";
+    fjr(9)
+    coloretto[j+9].color = "yellow";
+    fjr(9)
+    coloretto[j+18].color = "green";
+    fjr(9)
+    coloretto[j+27].color = "brown";
+    fjr(9)
+    coloretto[j+36].color = "blue";
+    fjr(9)
+    coloretto[j+45].color = "purple";
+    fjr(9)
+    coloretto[j+54].color = "red";
+
+    //3 joker
+    coloretto[63].color = "joker";
+    coloretto[64].color = "joker";
+    coloretto[65].color = "joker";
+
+    //10 +2 cards
+    fir(10)
+    coloretto[66+i].color = "+2";
+    
+
+    //5 area cards
+    card area[5];
+    fir(5)
+    {
+        area[i].type = "area";
+    }
+
+    //5 summary cards
+    card summary[5];
+    fir(5)
+    {
+        summary[i].type = "summary";
+    }
+
+    //1 lastround card
+    card last_round;
+    last_round.type = "last_round";
+    
+    //number of players
+    cout << "number of players: ";
+    cin >> player_num;
+
+    
+
+    //3 players
+    if(player_num == 3)
+    {
+        
+        //remove one color of coloretto card
+        string RemovingColor = coloretto[rand()%62].color;
+        fir(63)
+        {
+            if(coloretto[i].color == RemovingColor)
+            {
+                coloretto[i].type = "removed";
+                coloretto[i].color = "removed";
+            }
+        }
+
+    }
+
+    //shuffle cards
+    vector<card> SupplyDeck;
+    fir(sizeof(coloretto)/sizeof(coloretto[0]))
+    {
+        SupplyDeck.push_back(coloretto[i]);
+    }
+
+    //get each player one summary card
+    const int onlyforvisualstudio = player_num;
+    struct PlayerArea
+    {
+        vector<card> PlayerDeck;
+        vector<card> SummaryCardDeck;
+    } ;
+
+    //get each player one coloretteo card
+    //not joker and each coloretto cannot be the SAME COLOR
+    
+    //shuffle every coloretto card
+
+    //put last round card at the 16th from the buttom
+
+    //place area card as many as the number of players
+
+    //start from a tandom player, clockwise
+
+    
+	
+	return 0;
+}
