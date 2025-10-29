@@ -3,10 +3,12 @@
 #include<string>
 #include<time.h>
 #include<cstdlib>
+#include<algorithm>
 
 #define fir(d) for(int i=0; i<d; i++)
 #define fjr(d) for(int j=0; j<d; j++)
 #define fkr(d) for(int k=0; k<d; k++)
+#define fr(a,b) for(int a=0; a<b; a++)
 #define debug(d) cerr << "Line " << __LINE__ << " " << #d << ": " << d << endl
 #define debugtext(d) cerr << "Line " << __LINE__ << d << endl
 
@@ -60,8 +62,6 @@ int main()
     //10 +2 cards
     fir(10)
     coloretto[66+i].color = "+2";
-    //fir(76)
-    //debug(coloretto[i].color);
 
     //5 area cards
     card area[5];
@@ -92,11 +92,7 @@ int main()
     {
         SupplyDeck.push_back(coloretto[i]);
     }
-    debug(sizeof(SupplyDeck[0]));
-    fir(sizeof(SupplyDeck)/sizeof(SupplyDeck[0]))
-    {
-        debug(SupplyDeck[i].type);
-    }
+    
 
     //3 players
     if(player_num == 3)
@@ -108,13 +104,10 @@ int main()
 
     }
 
-    fir(sizeof(SupplyDeck)/sizeof(SupplyDeck[0]))
+    fir(SupplyDeck.size())
     {
         debug(SupplyDeck[i].color);
-    }
-
-    //shuffle cards
-    
+    } cout << endl;
 
     //get each player one summary card
     const int onlyforvisualstudio = player_num;
@@ -123,11 +116,38 @@ int main()
         vector<card> PlayerDeck;
         vector<card> SummaryCardDeck;
     } Player[onlyforvisualstudio];
+    fir(player_num)
+    {
+        Player[i].SummaryCardDeck.push_back(summary[i]);
+    }
 
     //get each player one coloretteo card
-    //not joker and each coloretto cannot be the SAME COLOR
+    //not joker or +2 and each coloretto cannot be the SAME COLOR
+    fir(player_num)
+    {
+        
+        
+    }
+    fir(player_num)
+    {
+        debug(Player[i].PlayerDeck[0].color);
+    } cout << endl;
     
     //shuffle every coloretto card
+    fir(100){
+        fjr(SupplyDeck.size())
+        {
+            int index1 = rand() % SupplyDeck.size();
+            int index2 = rand() % SupplyDeck.size();
+            card temp = SupplyDeck[index1];
+            SupplyDeck[index1] = SupplyDeck[index2];
+            SupplyDeck[index2] = temp;
+        }
+    }
+    fir(SupplyDeck.size())
+    {
+        //debug(SupplyDeck[i].color);
+    } cout << endl;
 
     //put last round card at the 16th from the buttom
 
