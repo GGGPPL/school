@@ -1,13 +1,26 @@
 /* getchar example : typewriter */
-#include <stdio.h>
+#include <iostream>
+#include<vector>
+#include <string>
+
+#define fir(d) for (int i = 0; i < d; i++)
+
+using namespace std;
+
+char* string2char(string str)
+{
+	char p[100];
+	fir(str.length())
+	{
+		p[i] = str[i];
+	}
+	p[str.length()] = '\0';
+	return p;
+}
 
 int main ()
 {
-  char c;
-  puts ("Enter text. Include a dot ('.') in a sentence to exit:");
-  do {
-    c=getchar();
-    putchar (c);
-  } while (c != '.');
+  string p="abc";
+  cout << string2char(p) << endl;
   return 0;
 }
