@@ -7,23 +7,12 @@
 #include "student_submit.h"
 using namespace std;
 
-
-
 #define TOTAL_POS_SEEDS 10  // given_pos(1) + student select(9)
 
 DirectedGraph loadGraph(string dataFolder);
 double activeRate(DirectedGraph&, string);
 
 int main(int argc, char* argv[]) {
-
-    // ===== [增加這段檢查] =====
-    if (argc < 2) {
-        cerr << "[ERROR] Missing data folder path." << endl;
-        cerr << "Usage: " << argv[0] << " <path_to_data_folder>" << endl;
-        return 1; // 錯誤退出
-    }
-    // ===== [檢查結束] =====
-
 	DirectedGraph G = loadGraph(argv[1]);
 	double ar = activeRate(G, argv[1]);
 	cout << "Active_Rate=" << fixed << setprecision(5) << ar << endl;

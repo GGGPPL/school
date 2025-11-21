@@ -1,123 +1,335 @@
-#ifndef YOUR_ALGORITHM_H
-#define YOUR_ALGORITHM_H
+#ifndef STUDENT_SUBMIT_H
+#define STUDENT_SUBMIT_H
 
 #include "LT.h"
 #include "graph.h"
 #include <unordered_set>
+#include <vector>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <cmath>
+#include <algorithm>
+#include <map>
+#include <iostream>
+#include <queue>
+#include <limits>
+#include <set>
 
 using namespace std;
 
-/*
- * seedSelection:
- *   - G:   整張圖
- *   - numberOfSeeds: 需要你選的「額外正向種子數量」
- *                     （系統另外會再加上 1 個 given_pos.txt 裡的 positive seed）
- *
- * 你只需要回傳一個 unordered_set<int>，裡面放 numberOfSeeds 9個positivate seed編號。
+/**
+ * Standard interface function required by the problem statement.
  */
-// ===== [請將以下程式碼貼到 main() 函式上方] =====
+unordered_set<int> seedSelection(DirectedGraph& G,
+                                     unsigned int numberOfSeeds,
+                                     int givenPosSeed,
+                                     const unordered_set<int>& givenNegSeeds);
 
-#include <vector>
-#include <queue>        // 用於 std::priority_queue
-#include <limits>       // 用於 std::numeric_limits
+class Solver {
+private:
+    DirectedGraph* graph;
+    int targetPosSeed;
+    unordered_set<int> negativeSeeds;
+    
+    // Data structures for features
+    struct NodeFeatures {
+        int id;
+        vector<double> feats;
+    };
+    map<int, NodeFeatures> featureMap;
+    
+    // Scoring components
+    vector<double> featureScores;
+    vector<double> structuralScores;
+    vector<double> negativeRiskScores;
+    vector<double> finalScores;
+    
+    // Constants for tuning
+    const double ALPHA_STRUCTURAL = 0.5;  // Weight for structural influence
+    const double BETA_FEATURE = 0.3;      // Weight for feature similarity
+    const double GAMMA_RISK = 2.0;        // Penalty multiplier for negative risk
+    const double LAMBDA_DISCOUNT = 0.7;   // Discount factor for neighbors of chosen seeds
 
-/* * -----------------------------------------------------------------------------
- * CELF 結構：用於 Priority Queue
- * -----------------------------------------------------------------------------
- */
-struct NodeGain {
-    int nodeID;
-    double marginalGain; // 邊際效益
-    int round;          // 該效益是 "相對於第幾輪的 seedSet" 計算的
+public:
+    Solver(DirectedGraph* g, int posSeed, const unordered_set<int>& negSeeds) 
+        : graph(g), targetPosSeed(posSeed), negativeSeeds(negSeeds) {
+        int numNodes = 0;
+        if (g!= nullptr) {
+            // Determine maximum node ID for vector resizing
+            vector<int> nodes = g->getAllNodes();
+            for (int u : nodes) {
+                numNodes = max(numNodes, u + 1);
+            }
+        } else {
+            numNodes = 10000; // Fallback
+        }
+        
+        featureScores.resize(numNodes, 0.0);
+        structuralScores.resize(numNodes, 0.0);
+        negativeRiskScores.resize(numNodes, 0.0);
+        finalScores.resize(numNodes, 0.0);
+    }
 
-    NodeGain(int id, double gain, int r) : nodeID(id), marginalGain(gain), round(r) {}
+    // ---------------------------------------------------------
+    // Module 1: Feature Processing
+    // ---------------------------------------------------------
+    void loadAndProcessFeatures(const string& filename) {
+        ifstream infile(filename);
+        if (!infile.is_open()) {
+            return;
+        }
 
-    bool operator<(const NodeGain& other) const {
-        return this->marginalGain < other.marginalGain;
+        string line;
+        // Skip header/count line
+        getline(infile, line); 
+        
+        while (getline(infile, line)) {
+            if (line.empty()) continue;
+            stringstream ss(line);
+            int id;
+            double f1, f2;
+            if (ss >> id >> f1 >> f2) {
+                NodeFeatures nf;
+                nf.id = id;
+                nf.feats.push_back(f1);
+                nf.feats.push_back(f2);
+                featureMap[id] = nf;
+            }
+        }
+        infile.close();
+
+        // Calculate Similarity to Target Seed
+        if (featureMap.find(targetPosSeed) != featureMap.end()) {
+            // *ERROR SOURCE: featureMap is not FeatureMap. The member name is 'featureMap'.
+            // The member access needs to be node's features, not the map's features.
+            const auto& targetNodeFeats = featureMap.at(targetPosSeed).feats;
+            
+            for (auto const& [id, nodeFeat] : featureMap) {
+                if (id == targetPosSeed) continue;
+                double dist = euclideanDistance(targetNodeFeats, nodeFeat.feats);
+                // Similarity is inverse of distance. 
+                if (id < featureScores.size()) {
+                    featureScores[id] = 1.0 / (1.0 + dist);
+                }
+            }
+        }
+    }
+
+    double euclideanDistance(const vector<double>& v1, const vector<double>& v2) {
+        double sum = 0.0;
+        for (size_t i = 0; i < v1.size() && i < v2.size(); ++i) {
+            double diff = v1[i] - v2[i];
+            sum += diff * diff;
+        }
+        return sqrt(sum);
+    }
+
+    // ---------------------------------------------------------
+    // Module 2: Risk Assessment (Negative Influence Analysis)
+    // ---------------------------------------------------------
+    void calculateNegativeRisk() {
+        
+        // Initialize risk with 0
+        fill(negativeRiskScores.begin(), negativeRiskScores.end(), 0.0);
+
+        int maxDepth = 3;
+        
+        for (int negSeed : negativeSeeds) {
+            queue<pair<int, int>> q;
+            
+            // localImpact 應在每個種子迴圈內初始化
+            map<int, double> localImpact;
+            
+            // 修正 2: 初始化 map 結構
+            localImpact[negSeed] = 1.0; 
+            q.push({negSeed, 0});
+            
+            while(!q.empty()) {
+                pair<int, int> curr = q.front();
+                q.pop();
+                int u = curr.first;
+                int depth = curr.second;
+
+                if (depth >= maxDepth) continue;
+
+                double currentForce = localImpact[u];
+                if (currentForce < 0.01) continue; 
+
+                vector<int> neighbors = graph->getNodeOutNeighbors(u);
+                for (int v : neighbors) {
+                    double weight = graph->getEdgeInfluence(u, v);
+                    double passedInfluence = currentForce * weight;
+
+                    // 累積 global risk
+                    if (negativeRiskScores.size() > v) {
+                        negativeRiskScores[v] += passedInfluence;
+                    }
+
+                    // 傳播
+                    if (localImpact.find(v) == localImpact.end() && v < negativeRiskScores.size()) {
+                        localImpact[v] = passedInfluence;
+                        q.push({v, depth + 1});
+                    }
+                }
+            }
+        }
+        
+        // Normalize Risk Scores
+        double maxRisk = 0.0;
+        for (double r : negativeRiskScores) maxRisk = max(maxRisk, r);
+        if (maxRisk > 0) {
+            for (double &r : negativeRiskScores) r /= maxRisk;
+        }
+    }
+
+    // ---------------------------------------------------------
+    // Module 3: Structural Power Analysis (Local Influence)
+    // ---------------------------------------------------------
+    void calculateStructuralPower() {
+        vector<int> allNodes = graph->getAllNodes();
+        
+        for (int u : allNodes) {
+            if (negativeSeeds.count(u) || u == targetPosSeed) continue;
+
+            double power = 0.0;
+            vector<int> outNeighbors = graph->getNodeOutNeighbors(u);
+            
+            for (int v : outNeighbors) {
+                double weight = graph->getEdgeInfluence(u, v);
+                
+                double value = weight;
+                
+                // 1. 懲罰 v 的高風險
+                double v_risk = (negativeRiskScores.size() > v)? negativeRiskScores[v] : 0.0;
+                value *= (1.0 - v_risk * 0.8); 
+                
+                // 2. 獎勵 v 的高出度 (2-hop)
+                double v_outdegree = (double)graph->getNodeOutNeighbors(v).size();
+                value *= (1.0 + log(1.0 + v_outdegree) * 0.1);
+
+                power += value;
+            }
+            
+            if (structuralScores.size() > u) {
+                structuralScores[u] = power;
+            }
+        }
+
+        // Normalize Structural Scores
+        double maxStruct = 0.0;
+        for (double s : structuralScores) maxStruct = max(maxStruct, s);
+        if (maxStruct > 0) {
+            for (double &s : structuralScores) s /= maxStruct;
+        }
+    }
+
+    // ---------------------------------------------------------
+    // Module 4: Composite Scoring & Selection
+    // ---------------------------------------------------------
+    void computeFinalScores() {
+        vector<int> allNodes = graph->getAllNodes();
+        for (int u : allNodes) {
+            
+            // 修正 1: 修正邏輯 OR 運算子
+            if (negativeSeeds.count(u) || u == targetPosSeed) { 
+                finalScores[u] = -1000.0; // Invalid candidates
+                continue;
+            }
+
+            // Score Formula
+            double s_score = structuralScores[u];
+            double f_score = (featureScores.size() > u)? featureScores[u] : 0.0;
+            double r_score = (negativeRiskScores.size() > u)? negativeRiskScores[u] : 0.0;
+
+            // Score Formula: High Structural, high Feature Sim, low Risk
+            double total = (ALPHA_STRUCTURAL * s_score) + 
+                           (BETA_FEATURE * f_score) - 
+                           (GAMMA_RISK * r_score);
+            
+            finalScores[u] = total;
+        }
+    }
+
+    unordered_set<int> selectSeeds(unsigned int k) {
+        unordered_set<int> selectedSeeds;
+        vector<bool> isSelected(finalScores.size(), false);
+        
+        // Mark pre-existing seeds as selected to trigger discount logic correctly
+        if (isSelected.size() > targetPosSeed) isSelected[targetPosSeed] = true;
+        for (int neg : negativeSeeds) {
+            if (isSelected.size() > neg) isSelected[neg] = true;
+        }
+
+        // Iterative Greedy Selection with Discount
+        for (unsigned int i = 0; i < k; ++i) {
+            int bestNode = -1;
+            double maxVal = -999999.0;
+
+            // Find node with max current score
+            vector<int> nodes = graph->getAllNodes();
+            for (int u : nodes) {
+                if (!isSelected[u] && u < finalScores.size() && finalScores[u] > maxVal) {
+                    // Note: No need to recheck negativeSeeds.count(u) since it was already -1000 in computeFinalScores
+                    maxVal = finalScores[u];
+                    bestNode = u;
+                }
+            }
+
+            if (bestNode!= -1) {
+                selectedSeeds.insert(bestNode);
+                isSelected[bestNode] = true;
+
+                // Apply Discount to neighbors (Spatial Diversity)
+                vector<int> neighbors = graph->getNodeOutNeighbors(bestNode); 
+                for (int v : neighbors) {
+                    if (!isSelected[v] && finalScores.size() > v) {
+                        finalScores[v] *= LAMBDA_DISCOUNT;
+                    }
+                }
+            } else {
+                break; 
+            }
+        }
+        
+        // Final sanity check for size (rarely needed for this method but robust)
+        if (selectedSeeds.size() < k) {
+            vector<int> nodes = graph->getAllNodes();
+            for (int u : nodes) {
+                if (selectedSeeds.size() == k) break;
+                if (!isSelected[u]) selectedSeeds.insert(u);
+            }
+        }
+
+        return selectedSeeds;
     }
 };
 
-
-/* * -----------------------------------------------------------------------------
- * 輔助函式：計算 Active Rate (已更新)
- * -----------------------------------------------------------------------------
- * * @param G - 圖形
- * @param student_seeds - 我們正在測試的 0-9 個種子
- * @param givenPosSeed - 評測程式固定的 1 個正向種子
- * @param givenNegSeeds - 評測程式固定的 N 個負向種子
- * @return Active Rate (double)
+/**
+ * Standard interface function required by the problem statement.
  */
-static double calculate_active_rate(
-    DirectedGraph &G, 
-    const std::unordered_set<int>& student_seeds, 
-    int givenPosSeed, 
-    const std::unordered_set<int>& givenNegSeeds
-) {
-    
-    // 組合最終的正向種子：學生選的 + 固定的
-    std::unordered_set<int> pos_active = student_seeds;
-    pos_active.insert(givenPosSeed);
+inline unordered_set<int> seedSelection(DirectedGraph& G,
+                                         unsigned int numberOfSeeds,
+                                         int givenPosSeed,
+                                         const unordered_set<int>& givenNegSeeds) {
+    // 1. Initialize Solver
+    Solver solver(&G, givenPosSeed, givenNegSeeds);
 
-    // 負向種子是固定的
-    std::unordered_set<int> neg_active = givenNegSeeds; 
-    
-    std::unordered_set<int> final_pos;
-    std::unordered_set<int> final_neg;
+    // 2. Load Features (Assuming 'node_features.txt' is the file name)
+    // Note: The structure of the features file is inferred. This might need adjustment.
+    solver.loadAndProcessFeatures("node.txt"); 
 
-    // 呼叫簡報中提供的函式
-    diffuse_signed_all(&G, pos_active, neg_active, final_pos, final_neg);
+    // 3. Calculate Risks (Pre-computation)
+    solver.calculateNegativeRisk();
 
-    int total_users = G.getSize(); 
-    if (total_users == 0) {
-        return 0.0;
-    }
+    // 4. Calculate Potentials
+    solver.calculateStructuralPower();
 
-    // 根據簡報的公式計算 Active Rate
-    double active_rate = (double)(final_pos.size() - final_neg.size()) / total_users;
-    
-    return active_rate;
+    // 5. Combine Scores
+    solver.computeFinalScores();
+
+    // 6. Select Seeds
+    return solver.selectSeeds(numberOfSeeds);
 }
 
-
-/* * -----------------------------------------------------------------------------
- * 您的主要實作函式 (CELF 優化版本，已更新)
- * -----------------------------------------------------------------------------
- * @param G - 圖形
- * @param numberOfSeeds - 您需要選擇的種子數量 (這裡是 9)
- * @param givenPosSeed - 固定的 1 個正向種子
- * @param givenNegSeeds - 固定的 N 個負向種子
- * @return 包含您所選 9 個節點 ID 的 unordered_set
- */
-std::unordered_set<int> seedSelection(
-    DirectedGraph &G, 
-    unsigned int numberOfSeeds, // 這裡會傳入 9
-    int givenPosSeed, 
-    const std::unordered_set<int>& givenNegSeeds
-) {
-    std::vector<int> allNodes = G.getAllNodes();
-    for (int node_id : allNodes) {
-        G.addNode(node_id, 0.0, 1000.0); 
-    }
-
-    // 2. 快速選出 9 個合法的種子
-    std::unordered_set<int> seedSet; 
-    for (int node_id : allNodes) {
-        
-        // 檢查是否已達數量
-        if (seedSet.size() == numberOfSeeds) {
-            break;
-        }
-
-        // 檢查是否為 "合法" 的選擇 (不是固定的正/負種子)
-        if (node_id != givenPosSeed && givenNegSeeds.count(node_id) == 0) {
-            seedSet.insert(node_id);
-        }
-    }
-    
-    // 3. 回傳
-    return seedSet;
-}
-
-// ===== [貼上到此結束] =====
-
-#endif
+#endif // STUDENT_SUBMIT_H

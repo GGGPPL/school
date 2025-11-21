@@ -1,0 +1,3 @@
+ cd "C:\school\one up\C++\computer science\midterm1\midterm_file\"  
+  C:\msys64\ucrt64\bin\g++.exe -fdiagnostics-color=always -g ./student_result_codebase_2.cpp -o ./student_result_codebase_2.exe
+  ./student_result_codebase_2.exe ./medium_hard6  

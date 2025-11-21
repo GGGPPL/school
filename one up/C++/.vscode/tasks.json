@@ -9,8 +9,7 @@
                 "-g",
                 "${file}",
                 "-o",
-                "${fileDirname}\\${fileBasenameNoExtension}.exe",
-                "./medium_hard"
+                "${fileDirname}\\${fileBasenameNoExtension}.exe"
                 
             ],
             "options": {
