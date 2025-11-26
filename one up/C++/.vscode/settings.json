@@ -3,6 +3,7 @@
         "vector": "cpp",
         "xhash": "cpp",
         "unordered_set": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "sstream": "cpp"
     }
 }
