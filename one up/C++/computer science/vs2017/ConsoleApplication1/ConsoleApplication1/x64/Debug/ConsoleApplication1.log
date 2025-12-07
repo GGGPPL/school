@@ -1,2 +1,4 @@
 ﻿  ConsoleApplication1.cpp
+c:\school\one up\c++\computer science\vs2017\consoleapplication1\consoleapplication1\consoleapplication1.cpp(95): warning C4267: '正在初始化': 將 'size_t' 轉換為 'int'，資料可能遺失
+c:\school\one up\c++\computer science\vs2017\consoleapplication1\consoleapplication1\consoleapplication1.cpp(158): warning C4267: '正在初始化': 將 'size_t' 轉換為 'int'，資料可能遺失
   ConsoleApplication1.vcxproj -> C:\school\one up\C++\computer science\vs2017\ConsoleApplication1\x64\Debug\ConsoleApplication1.exe
