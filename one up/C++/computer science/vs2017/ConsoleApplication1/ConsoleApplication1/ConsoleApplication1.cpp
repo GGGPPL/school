@@ -1,125 +1,222 @@
 ﻿#include <iostream>
-#include <fstream>
 #include <vector>
+#include <cstdlib>
+#include <ctime>
 #include <string>
-#include <algorithm>
-#include <set>
-#include <sstream>
 
 using namespace std;
 
-// 用來儲存找到的所有 LCS (使用 set 自動排序且不重複)
-set<string> distinct_lcs;
+class Minesweeper {
+private:
+	int height, width, mines;
+	vector<vector<char>> displayBoard; // 顯示給玩家看的地圖
+	vector<vector<bool>> mineBoard;    // 紀錄地雷真實位置
+	vector<vector<bool>> revealed;     // 紀錄格子是否已被翻開
+	bool firstClick;                   // 判定是否為第一步
+	int revealedCount;                 // 已安全翻開的數量
 
-// 建立 DP Table 的函式
-vector<vector<int>> buildDPTable(const string& s1, const string& s2) {
-	int m = s1.length();
-	int n = s2.length();
-	// 初始化 (m+1) x (n+1) 的二維陣列，全為 0
-	vector<vector<int>> dp(m + 1, vector<int>(n + 1, 0));
+	// 八個方向的座標偏移量 (上、下、左、右、四個斜角)
+	int dx[8] = { -1, -1, -1, 0, 0, 1, 1, 1 };
+	int dy[8] = { -1, 0, 1, -1, 1, -1, 0, 1 };
 
-	for (int i = 1; i <= m; ++i) {
-		for (int j = 1; j <= n; ++j) {
-			if (s1[i - 1] == s2[j - 1]) {
-				dp[i][j] = dp[i - 1][j - 1] + 1;
+	// 檢查座標是否在合法範圍內
+	bool isValid(int x, int y) {
+		return x >= 0 && x < width && y >= 0 && y < height;
+	}
+
+	// 計算周圍 8 宮格內的地雷總數
+	int countNeighborMines(int x, int y) {
+		int count = 0;
+		for (int i = 0; i < 8; ++i) {
+			int nx = x + dx[i];
+			int ny = y + dy[i];
+			if (isValid(nx, ny) && mineBoard[ny][nx]) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	// 隨機放置地雷 (改用陣列洗牌法，保證秒速生成，絕對不卡住)
+	void placeMines(int firstX, int firstY) {
+		vector<pair<int, int>> available;
+		// 將所有合法的空位加入候選清單 (避開第一次點擊的位置)
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				if (!(x == firstX && y == firstY)) {
+					available.push_back({ x, y });
+				}
+			}
+		}
+
+		// 從候選清單中隨機抽出 mines 個位置放地雷
+		for (int i = 0; i < mines; ++i) {
+			int randIdx = i + rand() % (available.size() - i);
+			swap(available[i], available[randIdx]);
+			mineBoard[available[i].second][available[i].first] = true;
+		}
+	}
+
+	// 展開格子 (改用 BFS 迴圈解法，避免地圖太大時記憶體當機)
+	void reveal(int startX, int startY) {
+		if (!isValid(startX, startY) || revealed[startY][startX]) return;
+
+		vector<pair<int, int>> queue;
+		queue.push_back({ startX, startY });
+		revealed[startY][startX] = true;
+		revealedCount++;
+
+		int head = 0;
+		while (head < queue.size()) {
+			int x = queue[head].first;
+			int y = queue[head].second;
+			head++;
+
+			int neighborMines = countNeighborMines(x, y);
+			if (neighborMines > 0) {
+				// 周圍有地雷，顯示數字不再擴散
+				displayBoard[y][x] = '0' + neighborMines;
 			}
 			else {
-				dp[i][j] = max(dp[i - 1][j], dp[i][j - 1]);
+				// 周圍零地雷，顯示空白並自動向周圍擴散
+				displayBoard[y][x] = ' ';
+				for (int i = 0; i < 8; ++i) {
+					int nx = x + dx[i];
+					int ny = y + dy[i];
+					if (isValid(nx, ny) && !revealed[ny][nx]) {
+						revealed[ny][nx] = true;
+						revealedCount++;
+						queue.push_back({ nx, ny });
+					}
+				}
 			}
 		}
 	}
-	return dp;
-}
 
-// 使用回溯法 (Backtracking) 從 DP Table 找出所有 LCS
-void findAllLCS(int i, int j, const string& s1, const string& s2, const vector<vector<int>>& dp, string current_lcs) {
-	// Base Case: 走到表格邊界，結束遞迴
-	if (i == 0 || j == 0) {
-		// 因為是從後往前找，所以要反轉字串
-		reverse(current_lcs.begin(), current_lcs.end());
-		distinct_lcs.insert(current_lcs);
-		return;
-	}
+	// 印出遊戲地圖
+	void printBoard(bool showMines = false) {
+		cout << "\n   ";
+		for (int x = 0; x < width; ++x) cout << x << " ";
+		cout << "\n";
+		for (int y = 0; y < height; ++y) {
+			if (y < 10) cout << " ";
+			cout << y << " ";
 
-	// 情況 1: 字元相同，這個字元屬於 LCS
-	if (s1[i - 1] == s2[j - 1]) {
-		findAllLCS(i - 1, j - 1, s1, s2, dp, current_lcs + s1[i - 1]);
-	}
-	// 情況 2: 字元不同，往 DP 值大的方向走
-	else {
-		// 如果上方的值跟當前一樣，代表可以往上走
-		if (dp[i - 1][j] == dp[i][j]) {
-			findAllLCS(i - 1, j, s1, s2, dp, current_lcs);
+			for (int x = 0; x < width; ++x) {
+				if (showMines && mineBoard[y][x]) {
+					cout << "* ";
+				}
+				else if (revealed[y][x]) {
+					cout << displayBoard[y][x] << " ";
+				}
+				else {
+					cout << "- ";
+				}
+			}
+			cout << "\n";
 		}
-		// 如果左方的值跟當前一樣，代表可以往左走
-		if (dp[i][j - 1] == dp[i][j]) {
-			findAllLCS(i, j - 1, s1, s2, dp, current_lcs);
+		cout << "\n";
+	}
+
+	// 清除輸入緩衝區，防呆更穩定
+	void clearInputBuffer() {
+		cin.clear();
+		string dump;
+		getline(cin, dump);
+	}
+
+public:
+	Minesweeper() {
+		srand(time(0));
+	}
+
+	void init() {
+		while (true) {
+			cout << "Please input height, width, and number of mines:\n> ";
+			cin >> height >> width >> mines;
+
+			// 確保輸入的是數字，且沒有少輸入
+			if (cin.fail()) {
+				clearInputBuffer();
+				cout << "Error: Invalid input format. Please enter three numbers.\n";
+				continue;
+			}
+
+			if (height <= 0 || width <= 0 || mines <= 0) {
+				cout << "Error: Invalid input. Height, width, and mines must be positive.\n";
+				continue;
+			}
+
+			if (mines >= width * height) {
+				cout << "Error: Mines cannot exceed total grids (" << width * height - 1 << "). Please try again:\n";
+				continue;
+			}
+			break;
+		}
+
+		displayBoard.assign(height, vector<char>(width, '-'));
+		mineBoard.assign(height, vector<bool>(width, false));
+		revealed.assign(height, vector<bool>(width, false));
+		firstClick = true;
+		revealedCount = 0;
+	}
+
+	void play() {
+		cout << "Welcome to Minesweeper!\n";
+		init();
+
+		while (true) {
+			printBoard();
+			cout << "Enter coordinate (x y) to sweep:\n> ";
+			int x, y;
+			cin >> x >> y;
+
+			if (cin.fail()) {
+				clearInputBuffer();
+				cout << "Error: Invalid input format. Enter like '0 0'.\n";
+				continue;
+			}
+
+			if (!isValid(x, y)) {
+				cout << "Error: Coordinate out of bounds.\n";
+				continue;
+			}
+			if (revealed[y][x]) {
+				cout << "Error: Coordinate already revealed. Please try again.\n";
+				continue;
+			}
+
+			if (firstClick) {
+				placeMines(x, y);
+				firstClick = false;
+			}
+
+			if (mineBoard[y][x]) {
+				cout << "BOOM! You hit a mine. Game Over.\n";
+				printBoard(true);
+				break;
+			}
+
+			reveal(x, y);
+
+			if (revealedCount == height * width - mines) {
+				cout << "Congratulations! You cleared all the safe zones. You Win!\n";
+				printBoard(true);
+				break;
+			}
 		}
 	}
-}
-
-// 去除字串前後空白的工具函式 (避免輸入檔有額外空白)
-string trim(const string& str) {
-	size_t first = str.find_first_not_of(' ');
-	if (string::npos == first) {
-		return str;
-	}
-	size_t last = str.find_last_not_of(' ');
-	return str.substr(first, (last - first + 1));
-}
+};
 
 int main() {
-	string filePath;
-	cout << "請輸入txt檔案的路徑 (ex: C:\\Users\\name\\Desktop\\lcs.txt): ";
-	getline(cin, filePath); // 讀取整行路徑
+	Minesweeper game;
+	char playAgain;
 
-	ifstream inputFile(filePath);
-	if (!inputFile.is_open()) {
-		cerr << "無法開啟檔案，請確認路徑是否正確。" << endl;
-		return 1;
-	}
-
-	string line;
-	// 逐行讀取檔案
-	while (getline(inputFile, line)) {
-		if (line.empty()) continue;
-
-		stringstream ss(line);
-		string segment;
-		vector<string> pairStr;
-
-		// 以逗號分割字串
-		while (getline(ss, segment, ',')) {
-			pairStr.push_back(trim(segment));
-		}
-
-		if (pairStr.size() < 2) continue; // 確保有兩個字串
-
-		string s1 = pairStr[0];
-		string s2 = pairStr[1];
-
-		// 1. 建立 DP 表格
-		vector<vector<int>> dp = buildDPTable(s1, s2);
-		int lcs_len = dp[s1.length()][s2.length()];
-
-		// 2. 清空上次的結果並開始回溯找字串
-		distinct_lcs.clear();
-		findAllLCS(s1.length(), s2.length(), s1, s2, dp, "");
-
-		// 3. 輸出結果
-		// 格式: 長度, lcs1, lcs2...
-		cout << lcs_len;
-		for (const string& s : distinct_lcs) {
-			cout << ", " << s;
-		}
-		cout << endl;
-	}
-
-	inputFile.close();
-
-	// 暫停一下讓視窗不會馬上關閉 (在 Windows 環境常用)
-	cout << "\n執行完畢，按 Enter 鍵離開...";
-	cin.get();
+	do {
+		game.play();
+		cout << "Do you want to play again? (Y/N):\n> ";
+		cin >> playAgain;
+	} while (playAgain == 'Y' || playAgain == 'y');
 
 	return 0;
 }
