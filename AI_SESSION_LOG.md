@@ -21,4 +21,4 @@
 - **Logic System**: HW2 Done (QM Method + DFS).
 - **Computer Science**: HW11 Done (RPG Item System).
 - **Control Engineering**: Pending.
-- **Physics Experiment**: Pending.
+- **Physics Experiment**: Done (Report 13 generated and verified).
